@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AeroGest</title>
+<meta name="description" content="Fly a delivery drone with hand gestures from your webcam. Six levels, runs in the browser.">
+<meta name="theme-color" content="#131416">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23131416'/%3E%3Ccircle cx='9' cy='9' r='4' fill='none' stroke='%23ec5a26' stroke-width='2'/%3E%3Ccircle cx='23' cy='9' r='4' fill='none' stroke='%23ec5a26' stroke-width='2'/%3E%3Ccircle cx='9' cy='23' r='4' fill='none' stroke='%23ec5a26' stroke-width='2'/%3E%3Ccircle cx='23' cy='23' r='4' fill='none' stroke='%23ec5a26' stroke-width='2'/%3E%3Crect x='13' y='13' width='6' height='6' fill='%23f1f0ec'/%3E%3C/svg%3E">
+</head>
+<body data-mode="menu">
+<main id="stage">
+  <canvas id="view" aria-label="3D view of the drone course"></canvas>
+</main>
+
+<header class="top">
+  <button type="button" class="brand" id="brand" title="Back to levels (Esc)">
+    <span class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <span class="word">AeroGest</span>
+    <span class="phase" id="phase">Demo</span>
+  </button>
+
+  <div class="readouts" id="readouts">
+    <div class="ro"><span class="k">Time</span><b id="time">00:00.0</b></div>
+    <div class="ro"><span class="k">Crates</span><b id="crates">0/1</b></div>
+    <div class="ro"><span class="k">Points</span><b id="points">0</b></div>
+    <div class="ro wide"><span class="k">Ghost</span><b id="delta">--</b></div>
+  </div>
+
+  <div class="controls">
+    <span class="medals" id="medals"></span>
+    <button type="button" class="chip" id="ghostBtn" aria-pressed="true">Ghost</button>
+    <button type="button" class="chip" id="resetBtn" title="Restart (R)">Restart</button>
+  </div>
+</header>
+
+<div class="toast" id="warn" role="status" aria-live="polite"></div>
+<ul class="pts" id="feedPts" aria-live="polite"></ul>
+<div class="callout" id="callout" aria-live="polite"></div>
+
+<section class="menu" id="menu" aria-labelledby="menuTitle">
+  <h1 id="menuTitle">AeroGest</h1>
+  <p class="lede">Fly a delivery drone with hand signs from your webcam. Open hand flies forward, one finger climbs, two fingers descend, thumb left or right slides, pinch stops, and a held fist picks up or drops the crate. Touching a wall ends the run.</p>
+  <div class="levels" id="levels" role="listbox" aria-label="Levels"></div>
+  <div class="go">
+    <span class="go-label" id="goLabel">Fly Flight school with</span>
+    <div class="go-actions">
+      <button type="button" class="btn primary" id="startHand">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2 6.5A1.5 1.5 0 0 1 3.5 5H12a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 12 15H3.5A1.5 1.5 0 0 1 2 13.5zM13.5 8.5 18 6v8l-4.5-2.5"/></svg>
+        Camera
+      </button>
+      <button type="button" class="btn" id="startKeys">Keyboard</button>
+      <button type="button" class="btn" id="startTouch">Touch</button>
+    </div>
+  </div>
+</section>
+
+<aside class="tutor" id="tutor" hidden>
+  <p class="tutor-hint" id="tutorHint"></p>
+  <span class="tutor-bar"><i id="tutorFill"></i></span>
+  <ol id="tutorSteps"></ol>
+</aside>
+
+<aside class="pilot" id="pilot" hidden>
+  <div class="feed" id="feed">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="overlay"></canvas>
+    <span class="feed-tag"><i class="dot"></i><span id="feedTag">Camera</span></span>
+  </div>
+  <div class="gesturebox" id="gesturebox">
+    <div class="pose-now">
+      <span class="k">Pose</span>
+      <b id="poseNow">--</b>
+      <span class="hold" title="How close the next pose is to taking over"><i id="poseHold"></i></span>
+    </div>
+    <div class="fingers" aria-label="Fingers the classifier sees as extended">
+      <span data-f="thumb">T</span><span data-f="0">I</span><span data-f="1">M</span><span data-f="2">R</span><span data-f="3">P</span>
+    </div>
+    <div class="pinchline">
+      <span class="k">Pinch gap</span>
+      <span class="v" id="pinchVal">--</span>
+    </div>
+    <span class="meter"><i id="pinchFill"></i><em style="left:32%"></em></span>
+    <div class="srcline">
+      <span class="k">Classifier</span>
+      <span class="v" id="poseSrc">built-in</span>
+      <button type="button" class="chip small" id="teachBtn">Teach my hand</button>
+    </div>
+    <label class="sens">
+      <span class="k">Drone speed</span>
+      <input type="range" id="sens" min="0.3" max="1" step="0.05" value="0.6">
+    </label>
+  </div>
+  <div class="perf" id="perf">Loading hand model</div>
+  <div class="legend" id="keysLegend" hidden>
+    <div><kbd>W</kbd><kbd>S</kbd><span>forward, back</span></div>
+    <div><kbd>A</kbd><kbd>D</kbd><span>or</span><kbd>←</kbd><kbd>→</kbd><span>slide</span></div>
+    <div><kbd>↑</kbd><kbd>↓</kbd><span>climb, descend</span></div>
+    <div><kbd>Space</kbd><span>grab, release</span></div>
+    <div><kbd>R</kbd><span>restart</span><kbd>Esc</kbd><span>levels</span></div>
+  </div>
+</aside>
+
+<nav class="posebar" id="posebar" aria-label="Hand poses" hidden>
+  <div class="pose" data-pose="forward"><span class="glyph">open hand</span><span>Forward</span></div>
+  <div class="pose" data-pose="back"><span class="glyph">thumbs down</span><span>Back</span></div>
+  <div class="pose" data-pose="up"><span class="glyph">1 finger</span><span>Climb</span></div>
+  <div class="pose" data-pose="down"><span class="glyph">2 fingers</span><span>Descend</span></div>
+  <div class="pose" data-pose="left"><span class="glyph">thumb ←</span><span>Left</span></div>
+  <div class="pose" data-pose="right"><span class="glyph">thumb →</span><span>Right</span></div>
+  <div class="pose" data-pose="stop"><span class="glyph">pinch</span><span>Stop</span></div>
+  <div class="pose" data-pose="grab"><span class="glyph">fist, hold</span><span>Grab</span></div>
+</nav>
+
+<div class="modal teach" id="teach" hidden>
+  <h2 id="teachTitle">Teach it your hand</h2>
+  <p id="teachText"></p>
+  <div class="teach-pose" id="teachPoseBox" hidden>
+    <b id="teachPose"></b>
+    <span id="teachHow"></span>
+    <div class="bar"><i id="teachFill"></i></div>
+  </div>
+  <table class="teach-table" id="teachTable" hidden></table>
+  <div class="modal-actions">
+    <button type="button" class="btn" id="teachClear">Forget my model</button>
+    <button type="button" class="btn" id="teachCancel">Close</button>
+    <button type="button" class="btn primary" id="teachGo">Start</button>
+  </div>
+</div>
+
+<div class="sticks" id="sticks" hidden>
+  <div class="stick" data-stick="move"><i></i><span>move</span></div>
+  <button type="button" class="grab" data-grab>Grab</button>
+  <div class="stick" data-stick="lift"><i></i><span>climb</span></div>
+</div>
+
+<div class="modal" id="prompt" hidden>
+  <h2 id="promptTitle">Show your hand</h2>
+  <p id="promptText"></p>
+  <div class="bar" id="calBar"><i id="calFill"></i></div>
+  <div class="modal-actions">
+    <button type="button" class="btn" id="skipToKeys">Use keyboard</button>
+    <button type="button" class="btn primary" id="retry" hidden>Enable camera</button>
+  </div>
+</div>
+
+<div class="modal debrief" id="result" hidden>
+  <div class="deb-head">
+    <div class="medal" id="resMedal" data-medal="none"><span id="resMedalText">–</span></div>
+    <div class="deb-title">
+      <p class="sub" id="resKicker"></p>
+      <h2 id="resTitle"></h2>
+    </div>
+    <span class="badge" id="resBadge" hidden>New best</span>
+  </div>
+  <div class="deb-score">
+    <div class="sum">
+      <div><span>Flight time</span><b id="resFlight">--</b></div>
+      <div><span>Off-center drops</span><b id="resPlace">--</b></div>
+      <div><span>Rings</span><b id="resRings">--</b></div>
+      <div class="total"><span>Medal time</span><b id="resTime">--</b></div>
+      <div><span>Gates</span><b id="resGates">--</b></div>
+      <div><span>Time bonus</span><b id="resBonus">--</b></div>
+    </div>
+    <div class="targets" id="resTargets"></div>
+  </div>
+  <div class="deb-legend"><span class="you">You</span><span class="ref" id="refLabel">Reference</span></div>
+  <figure class="deb-plot map"><figcaption>Flight path, top down</figcaption><div id="mapPlot"></div></figure>
+  <div class="deb-two">
+    <figure class="deb-plot"><figcaption>Altitude</figcaption><div id="altPlot"></div></figure>
+    <figure class="deb-plot"><figcaption>Speed</figcaption><div id="spdPlot"></div></figure>
+  </div>
+  <div class="modal-actions">
+    <button type="button" class="btn" id="toLevels">Levels</button>
+    <button type="button" class="btn" id="restart">Retry <kbd>R</kbd></button>
+    <button type="button" class="btn primary" id="nextLevel">Next level</button>
+  </div>
+</div>
+
+<div class="modal" id="crash" hidden>
+  <h2>Crashed</h2>
+  <p id="crashText"></p>
+  <div class="modal-actions">
+    <button type="button" class="btn" id="crashLevels">Levels</button>
+    <button type="button" class="btn primary" id="crashRetry">Retry <kbd>R</kbd></button>
+  </div>
+</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
