@@ -86,6 +86,7 @@ let warn = "";
 let warnLeft = 0;
 let calloutLeft = 0;
 let crashAge = 0;
+let finalPoints: number | null = null;
 
 
 const references = new Map<string, ReferenceRun>();
@@ -161,6 +162,7 @@ function resetRun(): void {
   finished = false;
   demoRestartAt = 0;
   crashAge = 0;
+  finalPoints = null;
   warn = "";
   warnLeft = 0;
   $("result").hidden = true;
@@ -274,6 +276,7 @@ function finishRun(): void {
   const ref = referenceFor(level);
   const bonus = timePoints(task.score!.time, medalTargets(refTime(level)).bronze);
   const score = { ...task.score!, points: task.score!.points + bonus };
+  finalPoints = score.points;
   const medal = medalFor(score.time, refTime(level));
   const flight: Flight = { level: level.id, pilot: mode, score, samples: recorder.samples.slice() };
   const prev = ghost;
@@ -466,7 +469,7 @@ function frame(now: number): void {
 
   let ghostPose: Sample | null = null;
   let delta: number | null = null;
-  if (ghost && ghostOn && launched) {
+  if (ghost && ghostOn && launched && !task.crashed) {
     ghostPose = sampleAt(ghost.samples, runClock);
     if (ghostPose) delta = drone.z - ghostPose.z;
   }
@@ -488,7 +491,7 @@ function frame(now: number): void {
   const live = scoreOf(task);
   text("time", formatTime(live.time));
   text("crates", `${task.delivery}/${level.deliveries.length}`);
-  text("points", task.points.toLocaleString());
+  text("points", (finalPoints ?? task.points).toLocaleString());
   text("delta", delta === null ? "--" : `${delta >= 0 ? "+" : "−"}${Math.abs(delta).toFixed(1)} m`);
   $("delta").dataset.sign = delta === null ? "" : delta >= 0 ? "ahead" : "behind";
   let phase: string;

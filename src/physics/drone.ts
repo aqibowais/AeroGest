@@ -45,13 +45,9 @@ export function resetDrone(state: DroneState, x = 0, y = 2.2, z = 0, yaw = 0): v
 }
 
 /**
- * Hover model. Zero stick returns velocity to zero. There is no aerodynamic
- * simulation here: the stick sets a target velocity and the body eases toward it.
- * Yaw 0 faces +z. Positive strafe is to the pilot's right, which is world -x:
- * three.js is right-handed, so a chase camera looking down +z sees +x on the
- * left of the screen. (Earlier versions sent +strafe to +x, so "right" flew
- * the drone left on screen.) Positive yaw rotates the nose toward +x.
- * Wind is an air current in m/s that carries the drone on top of its own velocity.
+ * Hover model: the stick sets a target velocity and the body eases toward it.
+ * Yaw 0 faces +z. Positive strafe is the pilot's right, which is world -x for a
+ * chase camera looking down +z. Wind is added on top of the drone's own velocity.
  */
 export function stepDrone(
   state: DroneState,

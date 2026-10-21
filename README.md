@@ -2,7 +2,9 @@
 
 Fly a delivery drone with hand signs from a webcam. Hand tracking (MediaPipe) runs in the browser; there is no backend.
 
-![Level select](docs/preview.png)
+![Level select, with the autopilot flying the demo behind it](docs/preview.png)
+
+[GUIDE.md](GUIDE.md) explains how it all works and why: the gesture pipeline, the game logic, the autopilot, and the questions to expect.
 
 ## Gestures
 
@@ -32,12 +34,14 @@ Tests use a synthetic hand (finger chains with per-joint curl, projected to the 
 
 Six levels: a guided flight school, then gates, two- and three-crate deliveries, sliding and bobbing gates, crosswinds, and a night level with tight rings.
 
-- Touching a wall crashes the drone and ends the run.
+- Touching a wall crashes the drone and ends the run. Walls you have passed fade out so they never hide the drone.
 - Points: 100 per gate, 150 per bonus ring, 400 per crate plus up to 200 for landing it on the pad center, and 40 per second under the bronze time.
 - Medals are set from the autopilot's time on each level (gold within 10%, silver 40%, bronze 90%).
 - Your best run replays as a ghost; until you have one, the autopilot's run does.
 
-![Debrief](docs/debrief.png)
+![Crash](docs/crash.png)
+
+![Debrief: medal, points, path against the ghost, altitude and speed](docs/debrief.png)
 
 The autopilot flies the menu demo and sets the reference times. It outputs the same command as a hand or keyboard, so it goes through the same physics and scoring. A test requires it to finish every level through every gate without a crash.
 
